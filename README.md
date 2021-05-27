@@ -1,11 +1,11 @@
 # pendulum_simulation
 
-##Run the simulator
+## Run the simulator
 
 ``python N_pendulum_simulation.py --num_of_mass num --end time[s]``
 
 
-##Simulator outputs
+## Simulator outputs
 
 The simulator has 2 outputs.
 1. trajectories figure
