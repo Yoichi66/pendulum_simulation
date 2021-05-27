@@ -6,32 +6,10 @@ import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 import matplotlib.animation as animation
 import pandas as pd
-
-
-df_param = pd.read_csv('N_param0.csv')
-df_param = pd.DataFrame(df_param)
-#df_param = df_param[:, 1:].values
-df_param = np.array(df_param)
-df_param = df_param[:, 1:]
-
-m = np.array(df_param[0, :]).astype(np.float64).round(2)
-L = np.array(df_param[1, :]).astype(np.float64).round(2)
-theta = np.array(df_param[2, :]).astype(np.float64).round(2)
-x = np.array([np.radians(i) for i in theta]).astype(np.float64)
-v = np.array(df_param[3, :]).astype(np.float64).round(2)
-
-# 初期条件のコピー
-x0 = x.copy()
-
-# 初期位置の確認
-n = len(df_param[0, :])
-
-x_ini_cor = np.zeros(n, dtype=np.float64)
-y_ini_cor = np.zeros(n, dtype=np.float64)
-
+import os
 
 # 微分方程式
-def ini_cor_func(j):
+def ini_cor_func(j, x_ini_cor, y_ini_cor, x, L):
     if j == 0:
         x_ini_cor[j] = L[j] * np.sin(x[j])
         y_ini_cor[j] = -L[j] * np.cos(x[j])
@@ -41,43 +19,7 @@ def ini_cor_func(j):
 
     return x_ini_cor[j], y_ini_cor[j]
 
-
-for j in range(n):
-    x_ini_cor[j], y_ini_cor[j] = ini_cor_func(j)
-
-x_ini_cor = x_ini_cor * 1000
-y_ini_cor = y_ini_cor * 1000
-
-xplot_ = np.insert(x_ini_cor, 0, 0)
-yplot_ = np.insert(y_ini_cor, 0, 0)
-
-plt.grid()
-plt.plot(xplot_, yplot_, 'ko-', lw=2)
-
-# Calculate propertv
-init = 0
-end = 20
-dt = 0.05
-h = dt
-loop = int(end / h)
-
-n = len(df_param[0, :])
-g = 9.8
-
-# initial state
-t = init
-
-tpoints = np.arange(init, end, h)
-xpoints = []
-vpoints = []
-
-# A = np.zeros((n,n),dtype=np.float64)
-# B = np.zeros((n,n),dtype=np.float64)
-
-E = -np.ones_like(x)
-
-
-def N_func(t, x, v):
+def N_func(t, n, x, v, m, L, g, E):
     A = np.zeros((n, n), dtype=np.float64)
     B = np.zeros((n, n), dtype=np.float64)
 
@@ -103,128 +45,194 @@ def N_func(t, x, v):
 
     return F
 
+def main(num, end):
+    num = int(num)
+    df_param = pd.read_csv('N_param0.csv')
+    df_param = pd.DataFrame(df_param)
+    # df_param = df_param[:, 1:].values
+    df_param = np.array(df_param)
+    df_param = df_param[:, 1:num+1]
 
-xpoints = []
-vpoints = []
+    m = np.array(df_param[0, :]).astype(np.float64).round(2)
+    L = np.array(df_param[1, :]).astype(np.float64).round(2)
+    theta = np.array(df_param[2, :]).astype(np.float64).round(2)
+    x = np.array([np.radians(i) for i in theta]).astype(np.float64)
+    v = np.array(df_param[3, :]).astype(np.float64).round(2)
 
-# 配列要素数の定義
-j1 = np.zeros_like(v)
-k1 = np.zeros_like(x)
+    # 初期条件のコピー
+    x0 = x.copy()
 
-j2 = np.zeros_like(v)
-k2 = np.zeros_like(x)
+    # 初期位置の確認
+    n = len(df_param[0, :])
 
-j3 = np.zeros_like(v)
-k3 = np.zeros_like(x)
+    x_ini_cor = np.zeros(n, dtype=np.float64)
+    y_ini_cor = np.zeros(n, dtype=np.float64)
 
-j4 = np.zeros_like(v)
-k4 = np.zeros_like(x)
-
-
-def RK(t, x, v):
-    vt = v.copy()
-    xt = x.copy()
-    xpoints.append(xt)
-    vpoints.append(vt)
-
-    j1 = N_func(t, x, v) * h
-    k1 = v * h
-
-    j2 = N_func(t + h / 2, x + k1 / 2, v + j1 / 2) * h
-    k2 = (v + j1 / 2) * h
-
-    j3 = N_func(t + h / 2, x + k2 / 2, v + j2 / 2) * h
-    k3 = (v + j2 / 2) * h
-
-    j4 = N_func(t + h, x + k3, v + j3) * h
-    k4 = (v + j3) * h
-
-    v += (j1 + 2 * j2 + 2 * j3 + j4) / 6
-    x += (k1 + 2 * k2 + 2 * k3 + k4) / 6
-
-    return x, v, xpoints, vpoints
-
-
-# from ipykernel import kernelapp as app
-
-for t in range(len(tpoints)):
-    # for t in range(2):
-    x, v, xpoints, vpoints = RK(t, x, v)
-
-xpoints = np.array(xpoints)
-vpoints = np.array(vpoints)
-
-xt = np.zeros(len(xpoints))
-
-
-def xt_func(j):
-    xt = xpoints[:, j]
-    return xt
-
-
-x_cor = np.zeros((len(xpoints), n), dtype=np.float64)
-y_cor = np.zeros((len(xpoints), n), dtype=np.float64)
-
-
-def cor_func(j):
-    if j == 0:
-        x_cor[:, j] = L[j] * np.sin(xt_func(j))
-        y_cor[:, j] = -L[j] * np.cos(xt_func(j))
-    else:
-        x_cor[:, j] = L[j] * np.sin(xt_func(j)) + x_cor[:, j - 1]
-        y_cor[:, j] = -L[j] * np.cos(xt_func(j)) + y_cor[:, j - 1]
-
-    return x_cor[:, j], y_cor[:, j]
-
-
-for j in range(n):
-    x_cor[:, j], y_cor[:, j] = cor_func(j)
-
-x_cor = x_cor * 1000
-y_cor = y_cor * 1000
-
-for j in range(n):
-    plt.plot(x_cor[:,j], y_cor[:,j])
-
-
-# generate animation
-
-fig = plt.figure()
-ax = fig.add_subplot(111, autoscale_on=False, xlim=(-n * 1000, n * 1000),
-                     ylim=(-n * 1000 - n * 1000 * 0.5, n * 1000 - n * 1000 * 0.5))
-# xlim=(-n*1000, n*1000), ylim=(-n*1000-n*1000*0.5, n*1000-n*1000*0.5)
-ax.grid()
-
-line, = ax.plot([], [], 'o-', lw=2)
-time_template = 'time = %.1fs'
-time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
-
-
-def init():
-    line.set_data([], [])
-    time_text.set_text('')
-    return line, time_text
-
-
-def animate(i):
-    thisx = []
-    thisy = []
-    thisx.append(0)
-    thisy.append(0)
     for j in range(n):
-        thisx.append(x_cor[i, j])
-        thisy.append(y_cor[i, j])
+        x_ini_cor[j], y_ini_cor[j] = ini_cor_func(j, x_ini_cor, y_ini_cor, x, L)
 
-    line.set_data(thisx, thisy)
-    time_text.set_text(time_template % (i * dt))
-    return line, time_text
+    size1 = 1
+    x_ini_cor = x_ini_cor * size1
+    y_ini_cor = y_ini_cor * size1
 
+    xplot_ = np.insert(x_ini_cor, 0, 0)
+    yplot_ = np.insert(y_ini_cor, 0, 0)
 
-ani = animation.FuncAnimation(fig, animate, np.arange(1, len(tpoints)),
-                              interval=25, blit=True, init_func=init)
+    plt.grid()
+    plt.plot(xplot_, yplot_, 'ko-', lw=2)
 
-# ani.save('N_furiko_spring.mp4', fps=15)
-writergif = animation.PillowWriter(fps=30)
-ani.save('N_pendulum.gif', writer=writergif)
-plt.show()
+    # Calculate propertv
+    init = 0
+    end = int(end)
+    dt = 0.05
+    h = dt
+    loop = int(end / h)
+
+    n = len(df_param[0, :])
+    g = 9.8
+
+    # initial state
+    t = init
+
+    tpoints = np.arange(init, end, h)
+    xpoints = []
+    vpoints = []
+
+    # A = np.zeros((n,n),dtype=np.float64)
+    # B = np.zeros((n,n),dtype=np.float64)
+
+    E = -np.ones_like(x)
+
+    xpoints = []
+    vpoints = []
+
+    # 配列要素数の定義
+    j1 = np.zeros_like(v)
+    k1 = np.zeros_like(x)
+
+    j2 = np.zeros_like(v)
+    k2 = np.zeros_like(x)
+
+    j3 = np.zeros_like(v)
+    k3 = np.zeros_like(x)
+
+    j4 = np.zeros_like(v)
+    k4 = np.zeros_like(x)
+
+    def RK(t, x, v):
+        vt = v.copy()
+        xt = x.copy()
+        xpoints.append(xt)
+        vpoints.append(vt)
+
+        j1 = N_func(t, n, x, v, m, L, g, E) * h
+        k1 = v * h
+
+        j2 = N_func(t + h / 2, n, x + k1 / 2, v + j1 / 2, m, L, g, E) * h
+        k2 = (v + j1 / 2) * h
+
+        j3 = N_func(t + h / 2, n, x + k2 / 2, v + j2 / 2, m, L, g, E) * h
+        k3 = (v + j2 / 2) * h
+
+        j4 = N_func(t + h, n, x + k3, v + j3, m, L, g, E) * h
+        k4 = (v + j3) * h
+
+        v += (j1 + 2 * j2 + 2 * j3 + j4) / 6
+        x += (k1 + 2 * k2 + 2 * k3 + k4) / 6
+
+        return x, v, xpoints, vpoints
+
+    # from ipykernel import kernelapp as app
+
+    for t in range(len(tpoints)):
+        # for t in range(2):
+        x, v, xpoints, vpoints = RK(t, x, v)
+
+    xpoints = np.array(xpoints)
+    vpoints = np.array(vpoints)
+
+    xt = np.zeros(len(xpoints))
+
+    def xt_func(j):
+        xt = xpoints[:, j]
+        return xt
+
+    x_cor = np.zeros((len(xpoints), n), dtype=np.float64)
+    y_cor = np.zeros((len(xpoints), n), dtype=np.float64)
+
+    def cor_func(j):
+        if j == 0:
+            x_cor[:, j] = L[j] * np.sin(xt_func(j))
+            y_cor[:, j] = -L[j] * np.cos(xt_func(j))
+        else:
+            x_cor[:, j] = L[j] * np.sin(xt_func(j)) + x_cor[:, j - 1]
+            y_cor[:, j] = -L[j] * np.cos(xt_func(j)) + y_cor[:, j - 1]
+
+        return x_cor[:, j], y_cor[:, j]
+
+    for j in range(n):
+        x_cor[:, j], y_cor[:, j] = cor_func(j)
+
+    x_cor = x_cor * size1
+    y_cor = y_cor * size1
+
+    for j in range(n):
+        plt.plot(x_cor[:, j], y_cor[:, j])
+
+    # generate animation
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, autoscale_on=False, xlim=(-n * size1, n * size1),
+                         ylim=(-n * size1 - n * size1 * 0.5, n * size1 - n * size1 * 0.5))
+    # xlim=(-n*1000, n*1000), ylim=(-n*1000-n*1000*0.5, n*1000-n*1000*0.5)
+    ax.grid()
+
+    line, = ax.plot([], [], 'o-', lw=2)
+    time_template = 'time = %.1fs'
+    num_templete = 'N='+str(num)
+    num_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
+    time_text = ax.text(0.05, 0.8, '', transform=ax.transAxes)
+
+    def init():
+        line.set_data([], [])
+        num_text.set_text('')
+        time_text.set_text('')
+        return line, num_text, time_text
+
+    def animate(i):
+        thisx = []
+        thisy = []
+        thisx.append(0)
+        thisy.append(0)
+        for j in range(n):
+            thisx.append(x_cor[i, j])
+            thisy.append(y_cor[i, j])
+
+        line.set_data(thisx, thisy)
+        num_text.set_text(num_templete)
+        time_text.set_text(time_template % (i * dt))
+        return line, num_text, time_text
+
+    ani = animation.FuncAnimation(fig, animate, np.arange(1, len(tpoints)),
+                                  interval=25, blit=True, init_func=init)
+
+    # ani.save('N_furiko_spring.mp4', fps=15)
+    writergif = animation.PillowWriter(fps=30)
+    ani.save('N_pendulum.gif', writer=writergif)
+    plt.show()
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description="N pendulum simulation")
+    parser.add_argument('--num_of_mass', help='end number', default='10')
+    parser.add_argument('--end', help='end time[s]', default='10')
+
+    args = parser.parse_args()
+
+    path = os.getcwd()  # get current dir
+    num = args.num_of_mass
+    end = args.end
+
+    main(num, end)
 
